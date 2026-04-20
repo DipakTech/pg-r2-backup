@@ -1,12 +1,23 @@
-'use strict';
+"use strict";
 
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+const fs = require("fs");
+const path = require("path");
+const readline = require("readline");
 
-const logger = require('./logger');
-const { createR2Client, uploadFile, downloadFile, listObjects, deleteObject } = require('./r2');
-const { dumpDatabase, resetPublicSchema, restoreDatabase, dockerComposeService } = require('./docker');
+const logger = require("./logger");
+const {
+  createR2Client,
+  uploadFile,
+  downloadFile,
+  listObjects,
+  deleteObject,
+} = require("./r2");
+const {
+  dumpDatabase,
+  resetPublicSchema,
+  restoreDatabase,
+  dockerComposeService,
+} = require("./docker");
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -19,16 +30,16 @@ function formatBytes(bytes) {
 
 function timestampFilename() {
   const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n) => String(n).padStart(2, "0");
   const ts = [
     now.getFullYear(),
     pad(now.getMonth() + 1),
     pad(now.getDate()),
-    '_',
+    "_",
     pad(now.getHours()),
     pad(now.getMinutes()),
     pad(now.getSeconds()),
-  ].join('');
+  ].join("");
   return `db_${ts}.sql.gz`;
 }
 
@@ -39,7 +50,10 @@ function extractDateFromFilename(filename) {
 }
 
 async function confirm(question) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close();
@@ -62,10 +76,15 @@ async function backup(config) {
   const filename = timestampFilename();
   const localPath = path.join(config.localBackupDir, filename);
 
-  logger.log('Starting database backup…');
+  logger.log("Starting database backup…");
 
   try {
-    await dumpDatabase(config.dbUser, config.dbName, localPath);
+    await dumpDatabase(
+      config.dbUser,
+      config.dbName,
+      localPath,
+      config.postgresService,
+    );
   } catch (err) {
     fs.rmSync(localPath, { force: true });
     throw new Error(`Database dump failed: ${err.message}`);
@@ -74,12 +93,14 @@ async function backup(config) {
   const stat = fs.statSync(localPath);
   if (stat.size === 0) {
     fs.rmSync(localPath, { force: true });
-    throw new Error('Backup failed – empty file produced');
+    throw new Error("Backup failed – empty file produced");
   }
 
-  logger.success(`Local backup created: ${filename} (${formatBytes(stat.size)})`);
+  logger.success(
+    `Local backup created: ${filename} (${formatBytes(stat.size)})`,
+  );
 
-  logger.log('Uploading to Cloudflare R2…');
+  logger.log("Uploading to Cloudflare R2…");
   try {
     await uploadFile(client, config.r2Bucket, filename, localPath);
   } catch (err) {
@@ -92,7 +113,7 @@ async function backup(config) {
 
   await cleanupR2(config, client);
 
-  logger.success('Backup completed!');
+  logger.success("Backup completed!");
 }
 
 /**
@@ -102,26 +123,30 @@ async function backup(config) {
 async function list(config) {
   const client = createR2Client(config);
 
-  logger.log('=== Local Backups ===');
+  logger.log("=== Local Backups ===");
   const localFiles = getLocalBackups(config.localBackupDir);
   if (localFiles.length === 0) {
-    console.log('  (none)');
+    console.log("  (none)");
   } else {
     for (const f of localFiles) {
-      const size = formatBytes(fs.statSync(path.join(config.localBackupDir, f)).size);
+      const size = formatBytes(
+        fs.statSync(path.join(config.localBackupDir, f)).size,
+      );
       console.log(`  ${f}  (${size})`);
     }
   }
 
-  console.log('');
-  logger.log('=== R2 Cloud Backups ===');
+  console.log("");
+  logger.log("=== R2 Cloud Backups ===");
   try {
     const objects = await listObjects(client, config.r2Bucket);
     if (objects.length === 0) {
-      console.log('  (none)');
+      console.log("  (none)");
     } else {
       for (const obj of objects) {
-        const date = obj.lastModified ? obj.lastModified.toISOString().replace('T', ' ').slice(0, 19) : '';
+        const date = obj.lastModified
+          ? obj.lastModified.toISOString().replace("T", " ").slice(0, 19)
+          : "";
         console.log(`  ${obj.key}  ${date}  (${formatBytes(obj.size)})`);
       }
     }
@@ -137,7 +162,7 @@ async function list(config) {
 async function restore(config, backupName) {
   if (!backupName) {
     throw new Error(
-      'Usage: pg-r2-backup restore <backup_name>\n\nRun "pg-r2-backup list" to see available backups.'
+      'Usage: pg-r2-backup restore <backup_name>\n\nRun "pg-r2-backup list" to see available backups.',
     );
   }
 
@@ -145,7 +170,7 @@ async function restore(config, backupName) {
   const localPath = path.join(config.localBackupDir, backupName);
 
   if (!fs.existsSync(localPath)) {
-    logger.log('Downloading from R2…');
+    logger.log("Downloading from R2…");
     fs.mkdirSync(config.localBackupDir, { recursive: true });
     try {
       await downloadFile(client, config.r2Bucket, backupName, localPath);
@@ -158,28 +183,33 @@ async function restore(config, backupName) {
     throw new Error(`Backup not found: ${backupName}`);
   }
 
-  logger.warn('This will REPLACE the current database!');
+  logger.warn("This will REPLACE the current database!");
   const answer = await confirm("Type 'yes' to confirm: ");
-  if (answer !== 'yes') {
-    logger.log('Cancelled.');
+  if (answer !== "yes") {
+    logger.log("Cancelled.");
     return;
   }
 
-  logger.log('Stopping web-service…');
-  await dockerComposeService('stop', 'web-service');
+  logger.log("Stopping web-service…");
+  await dockerComposeService("stop", "web-service");
 
-  logger.log('Resetting public schema…');
-  await resetPublicSchema(config.dbUser, config.dbName);
+  logger.log("Resetting public schema…");
+  await resetPublicSchema(config.dbUser, config.dbName, config.postgresService);
 
-  logger.log('Restoring database…');
+  logger.log("Restoring database…");
   try {
-    await restoreDatabase(config.dbUser, config.dbName, localPath);
+    await restoreDatabase(
+      config.dbUser,
+      config.dbName,
+      localPath,
+      config.postgresService,
+    );
   } catch (err) {
     throw new Error(`Database restore failed: ${err.message}`);
   }
 
-  logger.log('Starting web-service…');
-  await dockerComposeService('start', 'web-service');
+  logger.log("Starting web-service…");
+  await dockerComposeService("start", "web-service");
 
   logger.success(`Database restored from: ${backupName}`);
 }
@@ -194,7 +224,7 @@ async function cleanupR2(config, existingClient) {
   const client = existingClient || createR2Client(config);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - config.retentionDays);
-  const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, ''); // "YYYYMMDD"
+  const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, ""); // "YYYYMMDD"
 
   let objects;
   try {

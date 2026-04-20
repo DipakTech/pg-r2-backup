@@ -22,10 +22,10 @@ function spawnDockerCompose(args, options = {}) {
  * Equivalent to:
  *   docker compose exec -T postgres pg_dump -U <user> <db> | gzip > <outPath>
  */
-async function dumpDatabase(dbUser, dbName, outPath) {
+async function dumpDatabase(dbUser, dbName, outPath, postgresService = 'postgres') {
   return new Promise((resolve, reject) => {
     const pgDump = spawnDockerCompose([
-      'exec', '-T', 'postgres',
+      'exec', '-T', postgresService,
       'pg_dump', '-U', dbUser, dbName,
     ]);
 
@@ -64,14 +64,14 @@ async function dumpDatabase(dbUser, dbName, outPath) {
  *   docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U <user> -d <db>
  *   with a heredoc that drops and recreates public schema.
  */
-async function resetPublicSchema(dbUser, dbName) {
+async function resetPublicSchema(dbUser, dbName, postgresService = 'postgres') {
   const sql = [
     `DROP SCHEMA IF EXISTS public CASCADE;`,
     `CREATE SCHEMA public AUTHORIZATION "${dbUser}";`,
     `GRANT ALL ON SCHEMA public TO public;`,
   ].join('\n');
 
-  return runPsql(dbUser, dbName, sql);
+  return runPsql(dbUser, dbName, sql, postgresService);
 }
 
 /**
@@ -80,10 +80,10 @@ async function resetPublicSchema(dbUser, dbName) {
  * Equivalent to:
  *   gunzip -c <filePath> | docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U <user> -d <db>
  */
-async function restoreDatabase(dbUser, dbName, filePath) {
+async function restoreDatabase(dbUser, dbName, filePath, postgresService = 'postgres') {
   return new Promise((resolve, reject) => {
     const psql = spawnDockerCompose([
-      'exec', '-T', 'postgres',
+      'exec', '-T', postgresService,
       'psql', '-v', 'ON_ERROR_STOP=1', '-U', dbUser, '-d', dbName,
     ]);
 
@@ -119,10 +119,10 @@ async function restoreDatabase(dbUser, dbName, filePath) {
 /**
  * Run arbitrary SQL via psql inside the postgres container.
  */
-async function runPsql(dbUser, dbName, sql) {
+async function runPsql(dbUser, dbName, sql, postgresService = 'postgres') {
   return new Promise((resolve, reject) => {
     const psql = spawnDockerCompose([
-      'exec', '-T', 'postgres',
+      'exec', '-T', postgresService,
       'psql', '-v', 'ON_ERROR_STOP=1', '-U', dbUser, '-d', dbName,
     ]);
 
