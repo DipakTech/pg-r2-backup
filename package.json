@@ -5,6 +5,14 @@
   "main": "src/index.js",
   "author": "Dipak Giri <dipakgiri.dev@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DipakTech/pg-r2-backup"
+  },
+  "homepage": "https://github.com/DipakTech/pg-r2-backup#readme",
+  "bugs": {
+    "url": "https://github.com/DipakTech/pg-r2-backup/issues"
+  },
   "bin": {
     "pg-r2-backup": "bin/cli.js"
   },
