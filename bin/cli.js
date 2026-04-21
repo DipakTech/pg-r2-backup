@@ -64,6 +64,8 @@ Environment Variables:
   R2_BUCKET             Bucket name                        (default: school-website-backups)
   DB_USER               PostgreSQL user                    (default: db_user)
   DB_NAME               PostgreSQL database name           (default: schooldb)
+  POSTGRES_SERVICE      Docker Compose DB service name     (default: postgres)
+  APP_SERVICE           Docker Compose app service name    (default: web-service)
   LOCAL_BACKUP_DIR      Local backup directory             (default: ./backups)
   RETENTION_DAYS        Days to keep R2 backups            (default: 30)
 

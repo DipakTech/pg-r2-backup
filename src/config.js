@@ -28,11 +28,17 @@ function loadConfig(envFile = '.env') {
       let value = trimmed.slice(eqIdx + 1).trim();
 
       // Strip surrounding quotes
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
+      const isDoubleQuoted = value.startsWith('"') && value.endsWith('"');
+      const isSingleQuoted = value.startsWith("'") && value.endsWith("'");
+      if (isDoubleQuoted || isSingleQuoted) {
         value = value.slice(1, -1);
+      } else {
+        // Allow inline comments for unquoted values:
+        // FOO=bar # comment
+        const hashIdx = value.indexOf('#');
+        if (hashIdx !== -1) {
+          value = value.slice(0, hashIdx).trim();
+        }
       }
 
       // Only set if not already set in the real environment
@@ -63,6 +69,8 @@ function loadConfig(envFile = '.env') {
     // Database
     dbUser: e.DB_USER || e.POSTGRES_USER || 'db_user',
     dbName: e.DB_NAME || e.POSTGRES_DB || 'schooldb',
+    postgresService: e.POSTGRES_SERVICE || e.DB_SERVICE || 'postgres',
+    appService: e.APP_SERVICE || e.WEB_SERVICE || 'web-service',
 
     // Local storage
     localBackupDir: e.LOCAL_BACKUP_DIR || './backups',

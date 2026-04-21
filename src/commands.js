@@ -190,8 +190,8 @@ async function restore(config, backupName) {
     return;
   }
 
-  logger.log("Stopping web-service…");
-  await dockerComposeService("stop", "web-service");
+  logger.log(`Stopping ${config.appService}…`);
+  await dockerComposeService("stop", config.appService);
 
   logger.log("Resetting public schema…");
   await resetPublicSchema(config.dbUser, config.dbName, config.postgresService);
@@ -208,8 +208,8 @@ async function restore(config, backupName) {
     throw new Error(`Database restore failed: ${err.message}`);
   }
 
-  logger.log("Starting web-service…");
-  await dockerComposeService("start", "web-service");
+  logger.log(`Starting ${config.appService}…`);
+  await dockerComposeService("start", config.appService);
 
   logger.success(`Database restored from: ${backupName}`);
 }

@@ -37,6 +37,8 @@ R2_BUCKET=kaamhubs-backups
 
 DB_USER=db_user
 DB_NAME=schooldb
+POSTGRES_SERVICE=postgres
+APP_SERVICE=web-service
 ```
 
 2. **Run a backup:**
@@ -87,6 +89,8 @@ Options:
 | `R2_BUCKET`            | `school-website-backups`   | R2 bucket name                           |
 | `DB_USER`              | `db_user`                  | PostgreSQL user                          |
 | `DB_NAME`              | `schooldb`                 | PostgreSQL database name                 |
+| `POSTGRES_SERVICE`     | `postgres`                 | Docker Compose DB service name           |
+| `APP_SERVICE`          | `web-service`              | Docker Compose app service to stop/start |
 | `LOCAL_BACKUP_DIR`     | `./backups`                | Local directory for backup files         |
 | `RETENTION_DAYS`       | `30`                       | Days to retain R2 backups                |
 
@@ -129,17 +133,17 @@ await cleanupR2(config);
 ## How It Works
 
 ### Backup
-1. Runs `docker compose exec -T postgres pg_dump -U <user> <db>` and pipes output through Node's `zlib.createGzip()` directly to a local `.sql.gz` file.
+1. Runs `docker compose exec -T <POSTGRES_SERVICE> pg_dump -U <user> <db>` and pipes output through Node's `zlib.createGzip()` directly to a local `.sql.gz` file.
 2. Uploads the file using `PutObjectCommand` (Content-Length based, avoids chunked Transfer-Encoding which R2 doesn't fully support).
 3. Prunes local backups older than 7 days.
 4. Deletes R2 backups older than `RETENTION_DAYS`.
 
 ### Restore
 1. Downloads the backup from R2 if it's not already local.
-2. Stops the `web-service` via `docker compose stop`.
+2. Stops the `<APP_SERVICE>` via `docker compose stop`.
 3. Resets the public schema (`DROP SCHEMA public CASCADE` + recreate).
-4. Pipes the gunzipped dump into `docker compose exec -T postgres psql`.
-5. Starts the `web-service` again.
+4. Pipes the gunzipped dump into `docker compose exec -T <POSTGRES_SERVICE> psql`.
+5. Starts the `<APP_SERVICE>` again.
 
 ---
 
