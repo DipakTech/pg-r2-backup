@@ -1,6 +1,6 @@
 {
   "name": "pg-r2-backup",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "PostgreSQL backup and restore tool using Cloudflare R2 storage (Docker Compose aware)",
   "main": "src/index.js",
   "author": "Dipak Giri <dipakgiri.dev@gmail.com>",
